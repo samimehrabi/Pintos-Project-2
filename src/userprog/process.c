@@ -491,7 +491,7 @@ void get_stack_args(char *file_name, void **esp, char **save_ptr)
         total_length += arg_length;
        //Add the length of the current substring to `total_length`.
         stack_pointer -= arg_length;
-       //Move the stack pointer up to insert the new subthread.
+       //Move the stack pointer up to insert the new substring.
         memcpy(stack_pointer, token, arg_length);
        //Copy the current substring to the location pointed to by the stack pointer.
         argc++;
@@ -511,24 +511,29 @@ void get_stack_args(char *file_name, void **esp, char **save_ptr)
         word_align++;
         total_length++;
     }
-    if (word_align != 0)
+    if (word_align != 0) //A condition to check if the alignment is needed or not.
     {
-        stack_pointer -= word_align;
-        memset(stack_pointer, 0, word_align);
+        stack_pointer -= word_align; //Align the stack by removing the number of extra characters.
+        memset(stack_pointer, 0, word_align); //Setting zero values for align characters.
     }
 
     /*adding null char*/
-    stack_pointer -= sizeof(char *);
-    memset(stack_pointer, 0, 1);
+    stack_pointer -= sizeof(char *); //Moving the stack pointer to place the end variable of the string.
+    memset(stack_pointer, 0, 1); //Setting zero value for the end character of the string.
 
     /*adding argument address*/
     int args_pushed = 0;
+   //This variable is used to count the number of characters of the arguments substrings that are placed on the stack.
     while(argc > args_pushed)
-    {
+    {//Start a loop to move and prepare arguments on the stack.
         stack_pointer -= sizeof(char *);
+       //Moving the stack pointer to place the address of the argument in the stack.
         *((char **) stack_pointer) = args_pointer;
+       //Save the address of the argument in the stack.
         args_pushed++;
+       //Increasing the number of arguments placed in the stack.
         args_pointer += (strlen(args_pointer) + 1);
+       //Moving the pointer of the argument string backwards.
     }
 
     /*adding char** */
@@ -544,6 +549,7 @@ void get_stack_args(char *file_name, void **esp, char **save_ptr)
     stack_pointer -= sizeof(int*);
     *(int *) (stack_pointer) = 0;
     *esp = stack_pointer;
+   //Save the final value of the stack pointer in `esp`.
 }
 
 /* load() helpers. */
@@ -555,10 +561,15 @@ static bool install_page (void *upage, void *kpage, bool writable);
 static bool
 validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
 {
+   //This function is one of the auxiliary functions used in the loading process of ELF programs.
+//Its task is to validate a part of the ELF file.
+//In other words, this function checks whether the specified section in the ELF file can be loaded or not.
+//The function returns `true' if the desired section is loadable and `false' otherwise.
     /* p_offset and p_vaddr must have the same page offset. */
     if ((phdr->p_offset & PGMASK) != (phdr->p_vaddr & PGMASK))
         return false;
-
+//checks if the physical offset and the virtual address are the same or not.
+//If these two values are different, it means we may be on an inconsistent path in memory that we cannot continue.
     /* p_offset must point within FILE. */
     if (phdr->p_offset > (Elf32_Off) file_length (file))
         return false;
