@@ -302,7 +302,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) //eip point to function to go after upload program
+load (const char *file_name, void (**eip) (void), void **esp) //eip point to function to go after load program
 // esp point to address
 {
 // printf ("hello from load\n");
@@ -310,7 +310,7 @@ load (const char *file_name, void (**eip) (void), void **esp) //eip point to fun
     struct Elf32_Ehdr ehdr; //save header info of ELF file
     struct file *file = NULL; 
     off_t file_ofs; //hold the current offset in file (place that already read currently)
-    bool success = false; //success or failed in upload a program
+    bool success = false; //success or failed in load a program
     int i; // use in loop
     /*stack arguments*/
     char *fn_copy; //file name copy
@@ -359,59 +359,77 @@ load (const char *file_name, void (**eip) (void), void **esp) //eip point to fun
     for (i = 0; i < ehdr.e_phnum; i++)
     {//loop starts to traverse all parts of program in ELF header.number of items in section is equal to `ehdr.e_phnum`.
         struct Elf32_Phdr phdr;
-
+//new instance of `struct Elf32_Phdr` is defined to store each part of the program.
         if (file_ofs < 0 || file_ofs > file_length (file))
             goto done;
+       //If current offset is outside the allowed range,loading operation ends and goes to the `done` label.
         file_seek (file, file_ofs);
-
+//The read position of the file is set to the current offset.
         if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
             goto done;
+//infoof each part is read from the file,
+//if the return value of the `file_read` function is not equal to the expectation,loading ends and goto `done' tag.
         file_ofs += sizeof phdr;
+//The offset is updated to point to the next part of the program header.
         switch (phdr.p_type)
-        {
-        case PT_NULL:
+        { //A `switch casse` flow control structure is started to check the type of each part of the program.
+        case PT_NULL: //This section is ignored if section type does not need to be loaded or is unknown.
         case PT_NOTE:
         case PT_PHDR:
         case PT_STACK:
         default:
             /* Ignore this segment. */
             break;
-        case PT_DYNAMIC:
+        case PT_DYNAMIC: //If the section is of a type that is not desired, loading  ends and goes to the `done` label.
         case PT_INTERP:
         case PT_SHLIB:
             goto done;
         case PT_LOAD:
+   //If the segment is a loadable segment and its information is valid, its loading operation will begin.
             if (validate_segment (&phdr, file))
             {
                 bool writable = (phdr.p_flags & PF_W) != 0;
+               //Determines whether the section is writable or not based on `PF_W` flag.
                 uint32_t file_page = phdr.p_offset & ~PGMASK;
+               //The offset in the file is calculated.
                 uint32_t mem_page = phdr.p_vaddr & ~PGMASK;
+               //Calculate offset in memory.
                 uint32_t page_offset = phdr.p_vaddr & PGMASK;
+               //The offset is calculated to move the content of the section from memory.
                 uint32_t read_bytes, zero_bytes;
+               //Variables are defined to store the number of bytes to be read from the file 
+               //and the number of zero bytes.
                 if (phdr.p_filesz > 0)
-                {
+                { //If the file size of the section is greater than zero, 
+                   //the section is normal and should be read from the file.
                     /* Normal segment.
                        Read initial part from disk and zero the rest. */
                     read_bytes = page_offset + phdr.p_filesz;
+                   //The number of readable bytes is calculated.
                     zero_bytes = (ROUND_UP (page_offset + phdr.p_memsz, PGSIZE)
                                   - read_bytes);
-                }
+                }//The number of zero bytes is calculated.
                 else
                 {
+                   //Otherwise, the section is completely zero and no need to read from the file.
                     /* Entirely zero.
                        Don't read anything from disk. */
-                    read_bytes = 0;
+                    read_bytes = 0; //The number of readable bytes is zero.
                     zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
+               //The number of bytes to be zeroed is equal to the size of the section in memory
+               // and is calculated as much as necessary to fill the pages.
                 if (!load_segment (file, file_page, (void *) mem_page,
                                    read_bytes, zero_bytes, writable))
                     goto done;
+//`load_segment` function is called to load the desired section of the file, 
+   //if the operation is not successful, the loading operation ends and goes to the `done'
             }
             else
                 goto done;
             break;
         }
-    }
+    } //end of for loop
 
     /* Set up stack. */
     if (!setup_stack (esp))
