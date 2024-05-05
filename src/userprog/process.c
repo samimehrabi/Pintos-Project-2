@@ -538,16 +538,25 @@ void get_stack_args(char *file_name, void **esp, char **save_ptr)
 
     /*adding char** */
     char ** first_fetch = (char **) stack_pointer;
+   //we create an initial pointer to the array of arguments.
     stack_pointer -= sizeof(char **);
+   //This line moves the stack_pointer down to where the `first_fetch` pointer is stored.
     *((char ***) stack_pointer) = first_fetch;
+   //This line passes the value of `first_fetch` (which is a pointer to an array of pointers) to stack_pointer.
+   //Therefore, the value of `first_fetch` is stored at the address that the stack_pointer now points to.
 
     /*adding number of arrguments*/
     stack_pointer -= sizeof(int);
+   //This line moves the stack_pointer down to where the number of arguments is stored.
     *(int *) (stack_pointer) = argc;
+   //This line stores the number of input arguments in stack_pointer.
 
     /*adding return address*/
     stack_pointer -= sizeof(int*);
+   //This line moves the stack_pointer down to where the return address is stored
     *(int *) (stack_pointer) = 0;
+   //This line stores the return address (which is zero here and 
+   //means successful termination of the program) in stack_pointer.
     *esp = stack_pointer;
    //Save the final value of the stack pointer in `esp`.
 }
@@ -578,7 +587,7 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
 
     /* p_memsz must be at least as big as p_filesz. */
     if (phdr->p_memsz < phdr->p_filesz)
-   //checks the length of the memory section corresponding to the file section is less than the length of the file or not.
+//checks the length of the memory section corresponding to the file section is less than the length of the file or not.
    //If so, it means that we are loading a part of the file with invalid size and dimensions.
         return false;
 
@@ -597,7 +606,7 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
     if (!is_user_vaddr ((void *) (phdr->p_vaddr + phdr->p_memsz)))
    //This condition is the same as the previous condition, with the difference that
    //the examined virtual address indicates the end of the memory section.
-   //If this address is not in the range of the user's address space, it means that the desired section cannot be loaded.
+//If this address is not in the range of the user's address space, it means that the desired section cannot be loaded.
         return false;
 
     /* The region cannot "wrap around" across the kernel virtual
@@ -646,9 +655,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
    //This line makes an assertion that ensures that the sum of bytes read
    //and bytes zeroed are completely allocated to physical memory pages.
     ASSERT (pg_ofs (upage) == 0);
-   //This line makes another assertion that ensures that the virtual address of `upage` is a valid page start.
+   //ensures that the virtual address of `upage` is a valid page start.
     ASSERT (ofs % PGSIZE == 0);
-   //This line adds another emphasis that ensures that the file offset is valid, sticking to the page boundaries.
+   //ensures that the file offset is valid, sticking to the page boundaries.
 
     file_seek (file, ofs);
    //This line connects the location in the file to the given offset.
