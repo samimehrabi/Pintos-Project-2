@@ -307,37 +307,41 @@ load (const char *file_name, void (**eip) (void), void **esp) //eip point to fun
 {
 // printf ("hello from load\n");
     struct thread *t = thread_current ();
-    struct Elf32_Ehdr ehdr;
-    struct file *file = NULL;
-    off_t file_ofs;
-    bool success = false;
-    int i;
+    struct Elf32_Ehdr ehdr; //save header info of ELF file
+    struct file *file = NULL; 
+    off_t file_ofs; //hold the current offset in file (place that already read currently)
+    bool success = false; //success or failed in upload a program
+    int i; // use in loop
     /*stack arguments*/
-    char *fn_copy;
+    char *fn_copy; //file name copy
     char *save_ptr;
 
     /* Allocate and activate page directory. */
-    t->pagedir = pagedir_create ();
-    if (t->pagedir == NULL)
-        goto done;
-    process_activate ();
+    t->pagedir = pagedir_create (); //new page space for current thread and save the address in t->...
+   // this is for saving the claims of pointers of the page
+    if (t->pagedir == NULL) //check that making a new page is successfull or not
+        goto done; //stop uploading and go to done label
+    process_activate (); //call functions to active page of current thread
+//necessary because current thread may prevent loading of new pages after switching.
 
+    int name_length = strlen (file_name)+1; //size of file name string + 1 bit for end of string
+    fn_copy = malloc (name_length);//set memory for copy file name as large as size and first address at fncopy 
+    strlcpy(fn_copy, file_name, name_length); //copy and strlcpy is safer than strcpy cause it aint go memory limit
+    fn_copy = strtok_r (fn_copy, " ", &save_ptr); //use strtok_r for tokenise by " "
+   //The pointer is stored in `save_ptr` where it points after all the words that have been separated so far.
 
-    int name_length = strlen (file_name)+1;
-    fn_copy = malloc (name_length);
-    strlcpy(fn_copy, file_name, name_length);
-    fn_copy = strtok_r (fn_copy, " ", &save_ptr);
-
-    file = filesys_open (fn_copy);
-
-    if (file == NULL)
+    file = filesys_open (fn_copy);//open file and store file address in "file"
+//If successful, a file handle is opened as the file opener for the current process.
+    if (file == NULL) //if not success and failed to open
     {
         printf ("load: %s: open failed\n", file_name);
-        goto done;
+        goto done; //stop running
     }
 
     /* Read and verify executable header. */
     if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
+   //Executable header information (ELF) is read from the read file and validity checked by conditional expressions
+   //If any ofconditions failed,"error loading executable" print with file name and end running:
             || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
             || ehdr.e_type != 2
             || ehdr.e_machine != 3
