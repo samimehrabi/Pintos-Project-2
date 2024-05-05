@@ -572,26 +572,39 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
 //If these two values are different, it means we may be on an inconsistent path in memory that we cannot continue.
     /* p_offset must point within FILE. */
     if (phdr->p_offset > (Elf32_Off) file_length (file))
+       //checks if the offset corresponding to the file section is greater than the length of the file or not.
+       //If so, it means we are pointing to a position in the file outside the valid range.
         return false;
 
     /* p_memsz must be at least as big as p_filesz. */
     if (phdr->p_memsz < phdr->p_filesz)
+   //checks the length of the memory section corresponding to the file section is less than the length of the file or not.
+   //If so, it means that we are loading a part of the file with invalid size and dimensions.
         return false;
 
     /* The segment must not be empty. */
     if (phdr->p_memsz == 0)
+   //checks whether the length of the memory section corresponding to the file section is zero or not.
+       //If so, it means we are loading an empty section of the file that is not valid.
         return false;
 
     /* The virtual memory region must both start and end within the
        user address space range. */
     if (!is_user_vaddr ((void *) phdr->p_vaddr))
+       //checks whether the virtual address of the file section is in the range of the user's address space or not.
+       //If the virtual address is not in the range, it means that the segment cannot be loaded.
         return false;
     if (!is_user_vaddr ((void *) (phdr->p_vaddr + phdr->p_memsz)))
+   //This condition is the same as the previous condition, with the difference that
+   //the examined virtual address indicates the end of the memory section.
+   //If this address is not in the range of the user's address space, it means that the desired section cannot be loaded.
         return false;
 
     /* The region cannot "wrap around" across the kernel virtual
        address space. */
     if (phdr->p_vaddr + phdr->p_memsz < phdr->p_vaddr)
+   //checks whether the range of the memory section is suitable in terms of length or not.
+   //If the range of the memory segment is not valid, it means that the target segment was not loaded correctly.
         return false;
 
     /* Disallow mapping page 0.
@@ -600,6 +613,9 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
        could quite likely panic the kernel by way of null pointer
        assertions in memcpy(), etc. */
     if (phdr->p_vaddr < PGSIZE)
+//This condition prevents page 0 from being mapped.
+//Page 0, as the page or base address, is a valid value for certain cases, 
+//so mapping it may cause problems in the operating system.
         return false;
 
     /* It's okay. */
@@ -624,35 +640,50 @@ static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable)
 {
+   //This function is for loading a part of the file to the virtual memory of a user process.
+   //This section of code is used by the operating system to load ELF executables program.
     ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
+   //This line makes an assertion that ensures that the sum of bytes read
+   //and bytes zeroed are completely allocated to physical memory pages.
     ASSERT (pg_ofs (upage) == 0);
+   //This line makes another assertion that ensures that the virtual address of `upage` is a valid page start.
     ASSERT (ofs % PGSIZE == 0);
+   //This line adds another emphasis that ensures that the file offset is valid, sticking to the page boundaries.
 
     file_seek (file, ofs);
+   //This line connects the location in the file to the given offset.
     while (read_bytes > 0 || zero_bytes > 0)
     {
+       //This line starts a while loop that continues until we need to read or we need to reset.
         /* Calculate how to fill this page.
            We will read PAGE_READ_BYTES bytes from FILE
            and zero the final PAGE_ZERO_BYTES bytes. */
         size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+       //This line determines how many bytes of the file we need to read to fill the physical page.
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
+       //This line determines how many bytes must be zeroed to complete the page.
 
         /* Get a page of memory. */
         uint8_t *kpage = palloc_get_page (PAL_USER);
+       //This line gets an empty page from the physical memory to load
+       //the file data and the necessary zeros from the physical memory.
         if (kpage == NULL)
+           //This line checks whether the allocation of an empty page of physical memory was successful.
             return false;
 
         /* Load this page. */
         if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
+           //This line of data related to the section of the desired file is read to the page.
             palloc_free_page (kpage);
             return false;
         }
         memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
+//This line of bytes corresponding to the zeroed data is added to the page.
         /* Add the page to the process's address space. */
         if (!install_page (upage, kpage, writable))
         {
+   //This line is mapped between the virtual address of the user and the physical address of the system memory.
             palloc_free_page (kpage);
             return false;
         }
@@ -661,8 +692,12 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         read_bytes -= page_read_bytes;
         zero_bytes -= page_zero_bytes;
         upage += PGSIZE;
+       //This line of variables related to the number of bytes read and zeroed bytes are updated for each page
+       //and the virtual address for the next page is determined.
     }
     return true;
+   //This line at the end returns `true' if all pages are loaded successfully 
+   //to indicate that the loading operation was successful.
 }
 
 /* Create a minimal stack by mapping a zeroed page at the top of
@@ -670,17 +705,26 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp)
 {
+   //This line is the definition of `setup_stack` function. 
+   //This function is used to create an initial stack for a user process.
     uint8_t *kpage;
     bool success = false;
-
+//defines two local variables: a pointer to the physical page
+   //and a variable to indicate the success of the loading operation.
     kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+   //This line allocates an empty page of physical memory by zeroing the content.
     if (kpage != NULL)
-    {
+    {//This line checks whether an empty page of physical memory has been successfully allocated.
         success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+       //This line indicates that the newly allocated physical memory page
+       //is mapped to the virtual page that is near the end of the user's virtual space.
         if (success)
+           //is mapped to the virtual page that is near the end of the user's virtual space.
             *esp = PHYS_BASE;
-        else
+           //the stack pointer is set to the last virtual location in the user's virtual space.
+        else //not successfull
             palloc_free_page (kpage);
+       //This line frees the physical page that was allocated.
     }
     return success;
 }
