@@ -440,29 +440,43 @@ load (const char *file_name, void (**eip) (void), void **esp) //eip point to fun
 
     /* Start address. */
     *eip = (void (*) (void)) ehdr.e_entry;
-
+//The program execution start address is stored as the entry point.
     success = true;
-
+//Indicates that the upload operation was successful.
 done:
     /* We arrive here whether the load is successful or not. */
     if (success)
     {
         /*deny*/
         file_deny_write(file);
+   //Write access to the program file is blocked to prevent unauthorized(not allow) changes.
         thread_current() -> exec_file = file;
-    }
+    }//The file we are executing is specified as the current executable file.
     else file_close (file);
     return success;
 }
 /*get stack arguments*/
 static
+//With these lines, the load() function is complete.
+//This function is responsible for loading an ELF executable from a file.
+//open a file - check the ELF header to make sure the file format is correct - 
+//Then the program is loaded along with all the sections and programs.
+//data is loaded into these pages - Finally, a stack is created for the program 
+//and the starting address of the program is specified as the entry point for the CPU.
 void get_stack_args(char *file_name, void **esp, char **save_ptr)
 {
-
+//parameters: `file_name` for the name of the program file,
+//`esp` for the starting address of the stack, 
+//`save_ptr` for the pointer used for the next use of the `strtok_r` function.
     char *token = file_name;
+   //Creating a pointer variable to the string named `token` and setting it to `file_name`.
     void *stack_pointer = *esp;
+   //Creating a void pointer variable named `stack_pointer` 
+   //and setting it to the value of the address that `esp` points to.
     int argc = 0;
-    int total_length = 0;
+   //Creating an integer variable called `argc' and setting it to zero.
+   //This variable is used to count the number of command line arguments.
+    int total_length = 0; //This variable is used to calculate the total length of the argument strings.
     /*split and insert in the stack
      * /bin/ls -l foo bar
      * /bin/ls
@@ -471,20 +485,29 @@ void get_stack_args(char *file_name, void **esp, char **save_ptr)
      * bar*/
     while (token != NULL)
     {
+       //Start a loop that continues until `token' points to a valid substring.
         int arg_length = (strlen(token) + 1);
+       //Calculate the length of the current substring +1 to add a final character (NULL).
         total_length += arg_length;
+       //Add the length of the current substring to `total_length`.
         stack_pointer -= arg_length;
+       //Move the stack pointer up to insert the new subthread.
         memcpy(stack_pointer, token, arg_length);
+       //Copy the current substring to the location pointed to by the stack pointer.
         argc++;
         token = strtok_r(NULL, " ", save_ptr);
+       //Using ``strtok_r'' function to get the next substring address.
     }
 
     char *args_pointer = (char *) stack_pointer;
-
+//Creating a string pointer variable called `args_pointer' 
+//and setting it to the address pointed to by `stack_pointer'.
     /*adding word align*/
     int  word_align = 0;
+   //This variable is used to calculate the number of additional characters for align arrangement.
     while (total_length % 4 != 0)
-    {
+    { 
+       //Start a loop to calculate the number of additional characters to align the stack.
         word_align++;
         total_length++;
     }
