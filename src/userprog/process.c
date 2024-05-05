@@ -344,10 +344,10 @@ load (const char *file_name, void (**eip) (void), void **esp) //eip point to fun
    //If any ofconditions failed,"error loading executable" print with file name and end running:
             || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
             || ehdr.e_type != 2
-            || ehdr.e_machine != 3
-            || ehdr.e_version != 1
-            || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
-            || ehdr.e_phnum > 1024)
+            || ehdr.e_machine != 3 //The expected target machine is not (Intel 80386)
+            || ehdr.e_version != 1 //The ELF type of the file is not the expected type (ELF32)
+            || ehdr.e_phentsize != sizeof (struct Elf32_Phdr) //The expected target machine is not (Intel 80386)
+            || ehdr.e_phnum > 1024) //The number of entries in the section should not exceed the limit (1024).
     {
         printf ("load: %s: error loading executable\n", file_name);
         goto done;
@@ -355,8 +355,9 @@ load (const char *file_name, void (**eip) (void), void **esp) //eip point to fun
 
     /* Read program headers. */
     file_ofs = ehdr.e_phoff;
+//offset to read the program header in `file` is extracted from the ELF file header and stored in `file_ofs`.
     for (i = 0; i < ehdr.e_phnum; i++)
-    {
+    {//loop starts to traverse all parts of program in ELF header.number of items in section is equal to `ehdr.e_phnum`.
         struct Elf32_Phdr phdr;
 
         if (file_ofs < 0 || file_ofs > file_length (file))
