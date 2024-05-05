@@ -727,6 +727,7 @@ setup_stack (void **esp)
        //This line frees the physical page that was allocated.
     }
     return success;
+   //This line indicates whether the stack installation operation was successful or not.
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
@@ -741,10 +742,15 @@ setup_stack (void **esp)
 static bool
 install_page (void *upage, void *kpage, bool writable)
 {
+   //This line defines the ``install_page'' function, which is 
+   //used to install a physical memory page to a virtual user page.
     struct thread *t = thread_current ();
+   //creates a pointer to the current thread to use in the function.
 
     /* Verify that there's not already a page at that virtual
        address, then map our page there. */
     return (pagedir_get_page (t->pagedir, upage) == NULL
+       //This line checks if a page at the given virtual address is already mapped.
             && pagedir_set_page (t->pagedir, upage, kpage, writable));
+   //maps a physical memory page to the user's virtual page and specifies the access level.
 }
